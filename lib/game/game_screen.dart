@@ -3,8 +3,9 @@ import 'dart:math' as math;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../screens/home_screen.dart';
 import '../utils/score_manager.dart';
+import '../services/auth_service.dart';
+import '../services/leaderboard_service.dart';
 import 'painters.dart';
 
 class GameScreen extends StatefulWidget {
@@ -344,7 +345,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                           ),
                           const SizedBox(height: 10),
                           const Text('GOAL: SCORE 50+ FOR MOVING PILLARS', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                          const Text('GOAL: SCORE 100+ FOR COLOR SHIFTS', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                          const Text('GOAL: SCORE 70+ FOR COLOR SHIFTS', style: TextStyle(color: Colors.white70, fontSize: 14)),
                         ],
                       ),
                     ),
@@ -438,30 +439,33 @@ class GameEnvironmentPainter extends CustomPainter {
       botCol = const Color(0xFF80DEEA);
     }
 
-    if (score >= 100) {
+    // Background changes at 70, then every 100 (170, 270, 370, etc.)
+    if (score >= 70) {
       int shiftIndex;
-      if (score <= 1000) {
-        shiftIndex = (score ~/ 100) % 10;
+      
+      if (score < 170) {
+        shiftIndex = 0; // 70-169
       } else {
-        shiftIndex = (10 + (score - 1000) ~/ 500) % 15;
+        // 170, 270, 370, etc. -> index 1, 2, 3...
+        shiftIndex = ((score - 70) ~/ 100) % 15;
       }
 
       final palettes = [
-        [const Color(0xFF1A237E), const Color(0xFF311B92), const Color(0xFF4527A0), const Color(0xFF5E35B1)], // 100
-        [const Color(0xFF1B5E20), const Color(0xFF2E7D32), const Color(0xFF388E3C), const Color(0xFF4CAF50)], // 200
-        [const Color(0xFF4E342E), const Color(0xFF5D4037), const Color(0xFF6D4C41), const Color(0xFF795548)], // 300
-        [const Color(0xFF212121), const Color(0xFF424242), const Color(0xFF616161), const Color(0xFF757575)], // 400
-        [const Color(0xFFBF360C), const Color(0xFFD84315), const Color(0xFFE64A19), const Color(0xFFF4511E)], // 500
-        [const Color(0xFF4A148C), const Color(0xFF6A1B9A), const Color(0xFF7B1FA2), const Color(0xFF8E24AA)], // 600
-        [const Color(0xFF006064), const Color(0xFF00838F), const Color(0xFF0097A7), const Color(0xFF00ACC1)], // 700
-        [const Color(0xFF311B92), const Color(0xFF4527A0), const Color(0xFF512DA8), const Color(0xFF5E35B1)], // 800
-        [const Color(0xFFE65100), const Color(0xFFEF6C00), const Color(0xFFF57C00), const Color(0xFFFB8C00)], // 900
-        [const Color(0xFF01579B), const Color(0xFF0277BD), const Color(0xFF0288D1), const Color(0xFF039BE5)], // 1000
-        [const Color(0xFF121212), const Color(0xFF1E1E1E), const Color(0xFF2C2C2C), const Color(0xFF383838)], // 1500+
-        [const Color(0xFF004D40), const Color(0xFF00695C), const Color(0xFF00796B), const Color(0xFF00897B)], // 2000+
-        [const Color(0xFF311B92), const Color(0xFF01579B), const Color(0xFF006064), const Color(0xFF1B5E20)], // 2500+
-        [const Color(0xFF1A237E), const Color(0xFF4A148C), const Color(0xFF880E4F), const Color(0xFFB71C1C)], // 3000+
-        [const Color(0xFF000000), const Color(0xFF1A237E), const Color(0xFF0D47A1), const Color(0xFF01579B)], // Deep Space
+        [const Color(0xFF1A237E), const Color(0xFF311B92), const Color(0xFF4527A0), const Color(0xFF5E35B1)], // 70
+        [const Color(0xFF1B5E20), const Color(0xFF2E7D32), const Color(0xFF388E3C), const Color(0xFF4CAF50)], // 170
+        [const Color(0xFF4E342E), const Color(0xFF5D4037), const Color(0xFF6D4C41), const Color(0xFF795548)], // 270
+        [const Color(0xFF212121), const Color(0xFF424242), const Color(0xFF616161), const Color(0xFF757575)], // 370
+        [const Color(0xFFBF360C), const Color(0xFFD84315), const Color(0xFFE64A19), const Color(0xFFF4511E)], // 470
+        [const Color(0xFF4A148C), const Color(0xFF6A1B9A), const Color(0xFF7B1FA2), const Color(0xFF8E24AA)], // 570
+        [const Color(0xFF006064), const Color(0xFF00838F), const Color(0xFF0097A7), const Color(0xFF00ACC1)], // 670
+        [const Color(0xFF311B92), const Color(0xFF4527A0), const Color(0xFF512DA8), const Color(0xFF5E35B1)], // 770
+        [const Color(0xFFE65100), const Color(0xFFEF6C00), const Color(0xFFF57C00), const Color(0xFFFB8C00)], // 870
+        [const Color(0xFF01579B), const Color(0xFF0277BD), const Color(0xFF0288D1), const Color(0xFF039BE5)], // 970
+        [const Color(0xFF121212), const Color(0xFF1E1E1E), const Color(0xFF2C2C2C), const Color(0xFF383838)], // 1070
+        [const Color(0xFF004D40), const Color(0xFF00695C), const Color(0xFF00796B), const Color(0xFF00897B)], // 1170
+        [const Color(0xFF311B92), const Color(0xFF01579B), const Color(0xFF006064), const Color(0xFF1B5E20)], // 1270
+        [const Color(0xFF1A237E), const Color(0xFF4A148C), const Color(0xFF880E4F), const Color(0xFFB71C1C)], // 1370
+        [const Color(0xFF000000), const Color(0xFF1A237E), const Color(0xFF0D47A1), const Color(0xFF01579B)], // 1470+
       ];
 
       topCol = palettes[shiftIndex][0];
@@ -631,41 +635,283 @@ class GameEnvironmentPainter extends CustomPainter {
   bool shouldRepaint(GameEnvironmentPainter old) => true;
 }
 
-class GameOverDialog extends StatelessWidget {
+class GameOverDialog extends StatefulWidget {
   final int score;
   final int coins;
   final bool isNewHigh;
   final VoidCallback onRestart;
   final VoidCallback onHome;
 
-  const GameOverDialog({super.key, required this.score, required this.coins, required this.isNewHigh, required this.onRestart, required this.onHome});
+  const GameOverDialog({
+    super.key,
+    required this.score,
+    required this.coins,
+    required this.isNewHigh,
+    required this.onRestart,
+    required this.onHome,
+  });
+
+  @override
+  State<GameOverDialog> createState() => _GameOverDialogState();
+}
+
+class _GameOverDialogState extends State<GameOverDialog> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+  final AuthService _authService = AuthService();
+  late LeaderboardService _leaderboardService;
+  final _nameController = TextEditingController();
+  bool _isSubmitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _leaderboardService = LeaderboardService(_authService);
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _scaleAnimation = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
+    _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _controller.forward();
+
+    // Pre-fill name if signed in
+    if (_authService.isSignedIn) {
+      _authService.getUserProfile().then((profile) {
+        if (profile != null && mounted) {
+          _nameController.text = profile['name'] ?? '';
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitToLeaderboard() async {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your name')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    await _leaderboardService.submitScore(widget.score, _nameController.text.trim());
+
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Score submitted to leaderboard!')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          width: 300,
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('GAME OVER', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.red)),
-              const SizedBox(height: 20),
-              if (isNewHigh) const Text('NEW HIGH SCORE!', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
-              Text('SCORE: $score', style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold)),
-              Text('COINS: +$coins', style: const TextStyle(fontSize: 20, color: Colors.blueGrey)),
-              const SizedBox(height: 30),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _Btn(icon: Icons.home_rounded, color: Colors.blueGrey, onTap: onHome),
-                  _Btn(icon: Icons.replay_rounded, color: Colors.green, onTap: onRestart, isLarge: true),
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Center(
+        child: ScaleTransition(
+          scale: _scaleAnimation,
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.85,
+              constraints: const BoxConstraints(maxWidth: 400),
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF1A237E), Color(0xFF0D47A1), Color(0xFF01579B)],
+                ),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  ),
                 ],
-              )
-            ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Game Over Title
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red, width: 2),
+                    ),
+                    child: const Text(
+                      'GAME OVER',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red,
+                        letterSpacing: 3,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // New High Score Badge
+                  if (widget.isNewHigh) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.emoji_events, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'NEW HIGH SCORE!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Score Display
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'SCORE',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${widget.score}',
+                          style: const TextStyle(
+                            fontSize: 48,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.stars, color: Colors.amber, size: 24),
+                            const SizedBox(width: 8),
+                            Text(
+                              '+${widget.coins} COINS',
+                              style: const TextStyle(
+                                color: Colors.amber,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // Leaderboard Submission
+                  if (_authService.isSignedIn) ...[
+                    TextField(
+                      controller: _nameController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Your Name',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.white30),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isSubmitting ? null : _submitToLeaderboard,
+                        icon: _isSubmitting
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.leaderboard),
+                        label: Text(_isSubmitting ? 'Submitting...' : 'Submit to Leaderboard'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.amber,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Action Buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _GameBtn(
+                        icon: Icons.home_rounded,
+                        label: 'Home',
+                        color: Colors.blueGrey,
+                        onTap: widget.onHome,
+                      ),
+                      _GameBtn(
+                        icon: Icons.replay_rounded,
+                        label: 'Retry',
+                        color: Colors.green,
+                        onTap: widget.onRestart,
+                        isLarge: true,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -673,21 +919,52 @@ class GameOverDialog extends StatelessWidget {
   }
 }
 
-class _Btn extends StatelessWidget {
+class _GameBtn extends StatelessWidget {
   final IconData icon;
+  final String label;
   final Color color;
   final VoidCallback onTap;
   final bool isLarge;
-  const _Btn({required this.icon, required this.color, required this.onTap, this.isLarge = false});
+
+  const _GameBtn({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.isLarge = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(isLarge ? 16 : 12),
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        child: Icon(icon, color: Colors.white, size: isLarge ? 36 : 24),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(isLarge ? 18 : 14),
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: isLarge ? 36 : 28),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../utils/score_manager.dart';
 import '../game/game_screen.dart';
 import '../game/painters.dart';
+import '../services/auth_service.dart';
+import 'auth_screen.dart';
+import 'leaderboard_screen.dart';
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -19,6 +22,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<String> _unlockedChars = ['airplane', 'fish', 'rocket', 'heli', 'ufo'];
   String _selectedArea = 'classic';
   List<String> _unlockedAreas = ['classic', 'night', 'desert', 'synthwave'];
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -39,14 +43,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final c = await ScoreManager.getCoins();
     final char = await ScoreManager.getSelectedCharacter();
     final area = await ScoreManager.getSelectedArea();
+    final unlockedC = await ScoreManager.getUnlockedCharacters();
+    final unlockedA = await ScoreManager.getUnlockedAreas();
     if (mounted) {
       setState(() {
         _highScore = s;
         _totalCoins = c;
         _selectedChar = char;
-        _unlockedChars = ['airplane', 'fish', 'rocket', 'heli', 'ufo']; // TEST OVERRIDE
+        _unlockedChars = unlockedC;
         _selectedArea = area;
-        _unlockedAreas = ['classic', 'night', 'desert', 'synthwave']; // TEST OVERRIDE
+        _unlockedAreas = unlockedA;
       });
     }
   }
@@ -121,8 +127,68 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      // Auth button
+                      GestureDetector(
+                        onTap: () async {
+                          if (_authService.isSignedIn) {
+                            await _authService.signOut();
+                            _refreshData();
+                          } else {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const AuthScreen()),
+                            );
+                            if (result == true) _refreshData();
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _authService.isSignedIn ? Icons.logout : Icons.login,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _authService.isSignedIn ? 'Sign Out' : 'Sign In',
+                                style: const TextStyle(color: Colors.white, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Leaderboard button
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const LeaderboardScreen()),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black26,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.leaderboard, color: Colors.amber, size: 20),
+                              SizedBox(width: 6),
+                              Text('Board', style: TextStyle(color: Colors.white, fontSize: 12)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Coins
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
