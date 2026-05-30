@@ -1,16 +1,30 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class AuthService {
+  // Singleton pattern
+  static final AuthService _instance = AuthService._internal();
+  factory AuthService() => _instance;
+  
+  late final GoogleSignIn _googleSignIn;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static const List<String> adminEmails = [
     'cgichuru47@gmail.com',
     'bramwela8@gmail.com',
   ];
+
+  AuthService._internal() {
+    _googleSignIn = GoogleSignIn(
+      clientId: kIsWeb 
+          ? '402937476289-pqcum5ereiqm2el86fl04rs0o58u8srf.apps.googleusercontent.com'
+          : null,
+      scopes: ['email', 'profile'],
+    );
+  }
 
   User? get currentUser => _auth.currentUser;
   bool get isSignedIn => _auth.currentUser != null;

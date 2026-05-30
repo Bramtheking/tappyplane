@@ -25,21 +25,35 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
     
-    final result = await _authService.signInWithGoogle();
-    
-    if (result != null && mounted) {
-      final profile = await _authService.getUserProfile();
+    try {
+      final result = await _authService.signInWithGoogle();
       
-      if (profile?['name'] == '' || profile?['age'] == 0) {
-        setState(() {
-          _needsProfile = true;
-          _isLoading = false;
-        });
+      if (result != null && mounted) {
+        final profile = await _authService.getUserProfile();
+        
+        if (profile?['name'] == '' || profile?['age'] == 0) {
+          setState(() {
+            _needsProfile = true;
+            _isLoading = false;
+          });
+        } else {
+          if (mounted) Navigator.of(context).pop(true);
+        }
       } else {
-        Navigator.of(context).pop(true);
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Sign in cancelled or failed. Please try again.')),
+          );
+        }
       }
-    } else {
-      setState(() => _isLoading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
     }
   }
 

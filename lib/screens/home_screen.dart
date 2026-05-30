@@ -15,6 +15,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late AnimationController _bgController;
   late AnimationController _planeController;
   late AnimationController _pulseController;
+  late AnimationController _characterAnimController;
   late Animation<double> _pulse;
   int _highScore = 0;
   int _totalCoins = 0;
@@ -27,15 +28,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _refreshData();
 
     _bgController = AnimationController(vsync: this, duration: const Duration(seconds: 30))..repeat();
     _planeController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+    _characterAnimController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
 
     _pulse = Tween<double>(begin: 1.0, end: 1.06).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
+    
+    _refreshData();
+    
+    // Listen to auth state changes
+    _authService.authStateChanges.listen((user) {
+      if (mounted) {
+        setState(() {});
+        _refreshData();
+      }
+    });
   }
 
   Future<void> _refreshData() async {
@@ -62,6 +73,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _bgController.dispose();
     _planeController.dispose();
     _pulseController.dispose();
+    _characterAnimController.dispose();
     super.dispose();
   }
 
@@ -80,12 +92,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       await ScoreManager.setSelectedCharacter(id);
       setState(() => _selectedChar = id);
     } else if (_totalCoins >= price) {
+      // Show purchase animation
+      _showPurchaseAnimation();
+      
       await ScoreManager.spendCoins(price);
       await ScoreManager.unlockCharacter(id);
       await ScoreManager.setSelectedCharacter(id);
       _refreshData();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not enough coins!')));
+      _showNotEnoughCoinsAnimation();
     }
   }
 
@@ -94,13 +109,39 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       await ScoreManager.setSelectedArea(id);
       setState(() => _selectedArea = id);
     } else if (_totalCoins >= price) {
+      // Show purchase animation
+      _showPurchaseAnimation();
+      
       await ScoreManager.spendCoins(price);
       await ScoreManager.unlockArea(id);
       await ScoreManager.setSelectedArea(id);
       _refreshData();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Not enough coins!')));
+      _showNotEnoughCoinsAnimation();
     }
+  }
+
+  void _showPurchaseAnimation() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.7),
+      builder: (context) => const _PurchaseSuccessDialog(),
+    );
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
+  void _showNotEnoughCoinsAnimation() {
+    final overlay = Overlay.of(context);
+    final overlayEntry = OverlayEntry(
+      builder: (context) => _NotEnoughCoinsOverlay(),
+    );
+    overlay.insert(overlayEntry);
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      overlayEntry.remove();
+    });
   }
 
   @override
@@ -227,15 +268,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
                     children: [
-                      _charSelector('airplane', const PlanePainter(), 0),
+                      _charSelector('airplane', (anim) => PlanePainter(animationValue: anim), 0),
                       const SizedBox(width: 15),
-                      _charSelector('fish', const FishPainter(), 0),
+                      _charSelector('fish', (anim) => FishPainter(animationValue: anim), 0),
                       const SizedBox(width: 15),
-                      _charSelector('rocket', const RocketPainter(), 100),
+                      _charSelector('rocket', (anim) => RocketPainter(animationValue: anim), 100),
                       const SizedBox(width: 15),
-                      _charSelector('heli', const HeliPainter(), 150),
+                      _charSelector('heli', (anim) => HeliPainter(animationValue: anim), 150),
                       const SizedBox(width: 15),
-                      _charSelector('ufo', const UfoPainter(), 200),
+                      _charSelector('ufo', (anim) => UfoPainter(animationValue: anim), 200),
                     ],
                   ),
                 ),
@@ -294,7 +335,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _charSelector(String id, CustomPainter painter, int price) {
+  Widget _charSelector(String id, CustomPainter Function(double) painterBuilder, int price) {
     bool isSelected = _selectedChar == id;
     bool isUnlocked = _unlockedChars.contains(id);
 
@@ -306,13 +347,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isSelected ? Colors.white.withOpacity(0.2) : Colors.black45,
+              color: isSelected ? Colors.white.withValues(alpha: 0.2) : Colors.black45,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: isSelected ? Colors.amber : (isUnlocked ? Colors.white24 : Colors.red.withOpacity(0.5)), width: 3),
+              border: Border.all(color: isSelected ? Colors.amber : (isUnlocked ? Colors.white24 : Colors.red.withValues(alpha: 0.5)), width: 3),
             ),
-            child: CustomPaint(
-              painter: painter,
-              size: const Size(60, 30),
+            child: AnimatedBuilder(
+              animation: _characterAnimController,
+              builder: (context, _) {
+                return CustomPaint(
+                  painter: painterBuilder(_characterAnimController.value),
+                  size: const Size(60, 30),
+                );
+              },
             ),
           ),
           const SizedBox(height: 5),
@@ -455,10 +501,33 @@ class _HomeBgPainter extends CustomPainter {
 
   void _drawCloud(Canvas canvas, Size size, Offset pos, double w) {
     final h = w * 0.4;
-    final p = Paint()..color = Colors.white.withOpacity(0.85);
-    canvas.drawOval(Rect.fromCenter(center: Offset(pos.dx + w * 0.5, pos.dy + h * 0.6), width: w, height: h), p);
-    canvas.drawOval(Rect.fromCenter(center: Offset(pos.dx + w * 0.35, pos.dy + h * 0.35), width: w * 0.6, height: h * 0.7), p);
-    canvas.drawOval(Rect.fromCenter(center: Offset(pos.dx + w * 0.65, pos.dy + h * 0.4), width: w * 0.5, height: h * 0.65), p);
+    
+    // Main cloud body with 3D effect
+    final shadowPaint = Paint()..color = Colors.black.withValues(alpha: 0.1)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    canvas.drawOval(Rect.fromCenter(center: Offset(pos.dx + w * 0.5 + 3, pos.dy + h * 0.6 + 3), width: w, height: h), shadowPaint);
+    
+    // Gradient for 3D effect
+    final cloudPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.3, -0.3),
+        colors: [
+          Colors.white,
+          Colors.white.withValues(alpha: 0.95),
+          Colors.white.withValues(alpha: 0.85),
+        ],
+        stops: const [0.0, 0.6, 1.0],
+      ).createShader(Rect.fromCenter(center: Offset(pos.dx + w * 0.5, pos.dy + h * 0.6), width: w, height: h));
+    
+    // Multiple overlapping circles for fluffy cloud
+    canvas.drawOval(Rect.fromCenter(center: Offset(pos.dx + w * 0.5, pos.dy + h * 0.6), width: w, height: h), cloudPaint);
+    canvas.drawOval(Rect.fromCenter(center: Offset(pos.dx + w * 0.35, pos.dy + h * 0.35), width: w * 0.6, height: h * 0.7), cloudPaint);
+    canvas.drawOval(Rect.fromCenter(center: Offset(pos.dx + w * 0.65, pos.dy + h * 0.4), width: w * 0.5, height: h * 0.65), cloudPaint);
+    canvas.drawOval(Rect.fromCenter(center: Offset(pos.dx + w * 0.25, pos.dy + h * 0.55), width: w * 0.4, height: h * 0.5), cloudPaint);
+    canvas.drawOval(Rect.fromCenter(center: Offset(pos.dx + w * 0.75, pos.dy + h * 0.6), width: w * 0.45, height: h * 0.55), cloudPaint);
+    
+    // Highlight for extra 3D pop
+    final highlightPaint = Paint()..color = Colors.white.withValues(alpha: 0.4);
+    canvas.drawOval(Rect.fromCenter(center: Offset(pos.dx + w * 0.4, pos.dy + h * 0.3), width: w * 0.3, height: h * 0.3), highlightPaint);
   }
 
   @override
@@ -466,3 +535,201 @@ class _HomeBgPainter extends CustomPainter {
 }
 
 // PlanePainter removed, using the one from painters.dart
+
+
+// Purchase Success Animation Dialog
+class _PurchaseSuccessDialog extends StatefulWidget {
+  const _PurchaseSuccessDialog();
+
+  @override
+  State<_PurchaseSuccessDialog> createState() => _PurchaseSuccessDialogState();
+}
+
+class _PurchaseSuccessDialogState extends State<_PurchaseSuccessDialog> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _rotationAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    
+    _scaleAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.2), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.2, end: 0.9), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 0.9, end: 1.0), weight: 40),
+    ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+    
+    _rotationAnimation = Tween<double>(begin: 0, end: 0.5).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+    
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Transform.rotate(
+              angle: _rotationAnimation.value,
+              child: Container(
+                width: 150,
+                height: 150,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const RadialGradient(
+                    colors: [Color(0xFFFFD700), Color(0xFFFF8C00)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.amber.withValues(alpha: 0.6),
+                      blurRadius: 30,
+                      spreadRadius: 10,
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.check_circle,
+                  size: 80,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// Not Enough Coins Overlay Animation
+class _NotEnoughCoinsOverlay extends StatefulWidget {
+  @override
+  State<_NotEnoughCoinsOverlay> createState() => _NotEnoughCoinsOverlayState();
+}
+
+class _NotEnoughCoinsOverlayState extends State<_NotEnoughCoinsOverlay> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _shakeAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1800),
+      vsync: this,
+    );
+    
+    _shakeAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: 10), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 10, end: -10), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: -10, end: 10), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 10, end: -10), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: -10, end: 0), weight: 10),
+      TweenSequenceItem(tween: Tween(begin: 0, end: 0), weight: 50),
+    ]).animate(_controller);
+    
+    _fadeAnimation = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0, end: 1), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1, end: 1), weight: 60),
+      TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 20),
+    ]).animate(_controller);
+    
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Positioned(
+          top: MediaQuery.of(context).size.height * 0.3,
+          left: 0,
+          right: 0,
+          child: Transform.translate(
+            offset: Offset(_shakeAnimation.value, 0),
+            child: Opacity(
+              opacity: _fadeAnimation.value,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFD32F2F), Color(0xFFB71C1C)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.red.withValues(alpha: 0.5),
+                        blurRadius: 20,
+                        spreadRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.white,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'NOT ENOUGH COINS!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.stars, color: Colors.amber, size: 24),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Play to earn more!',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.9),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

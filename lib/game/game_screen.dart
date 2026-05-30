@@ -29,6 +29,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late AudioPlayer _sfxPlayer;
   late AudioPlayer _bgmPlayer;
 
+  // Animation for characters
+  late AnimationController _characterAnimController;
+
   // Plane physics
   double _planeY = 0;
   double _planeVelocity = 0;
@@ -57,6 +60,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _sfxPlayer = AudioPlayer();
     _bgmPlayer = AudioPlayer();
     _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+    
+    // Character animation controller
+    _characterAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
   }
 
   Future<void> _loadCharacter() async {
@@ -248,6 +257,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void dispose() {
     _timer?.cancel();
     _focusNode.dispose();
+    _characterAnimController.dispose();
     super.dispose();
   }
 
@@ -287,6 +297,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       selectedArea: _selectedArea,
                     ),
                   ),
+
+                  // Underwater effect for fish character
+                  if (_selectedCharacter == 'fish')
+                    CustomPaint(
+                      size: size,
+                      painter: UnderwaterEffectPainter(
+                        animationValue: _characterAnimController.value,
+                        bgOffset: _bgOffset,
+                      ),
+                    ),
 
                   // Plane
                   Positioned(
@@ -340,12 +360,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
-                              shadows: [Shadow(color: Colors.black.withOpacity(0.5), blurRadius: 8)],
+                              shadows: [Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 8)],
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          const Text('GOAL: SCORE 50+ FOR MOVING PILLARS', style: TextStyle(color: Colors.white70, fontSize: 14)),
-                          const Text('GOAL: SCORE 70+ FOR COLOR SHIFTS', style: TextStyle(color: Colors.white70, fontSize: 14)),
                         ],
                       ),
                     ),
@@ -360,12 +377,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   Widget _buildCharacter() {
     CustomPainter painter;
+    final animValue = _characterAnimController.value;
+    
     switch (_selectedCharacter) {
-      case 'fish': painter = const FishPainter(); break;
-      case 'rocket': painter = const RocketPainter(); break;
-      case 'heli': painter = const HeliPainter(); break;
-      case 'ufo': painter = const UfoPainter(); break;
-      default: painter = PlanePainter(tilt: _planeVelocity * 0.05);
+      case 'fish': 
+        painter = FishPainter(animationValue: animValue);
+        break;
+      case 'rocket': 
+        painter = RocketPainter(animationValue: animValue);
+        break;
+      case 'heli': 
+        painter = HeliPainter(animationValue: animValue);
+        break;
+      case 'ufo': 
+        painter = UfoPainter(animationValue: animValue);
+        break;
+      default: 
+        painter = PlanePainter(tilt: _planeVelocity * 0.05, animationValue: animValue);
     }
     return CustomPaint(
       painter: painter,
@@ -888,6 +916,27 @@ class _GameOverDialogState extends State<GameOverDialog> with SingleTickerProvid
                       ),
                     ),
                     const SizedBox(height: 16),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white30),
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.leaderboard, color: Colors.amber, size: 32),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Sign in to submit your score\nto the leaderboard!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.white70, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                   ],
 
                   // Action Buttons
@@ -971,3 +1020,111 @@ class _GameBtn extends StatelessWidget {
 }
 
 // Removed redundant painters, moved to painters.dart
+
+
+// Underwater Effect Painter for Fish Character
+class UnderwaterEffectPainter extends CustomPainter {
+  final double animationValue;
+  final double bgOffset;
+
+  UnderwaterEffectPainter({
+    required this.animationValue,
+    required this.bgOffset,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Blue water overlay
+    final waterOverlay = Paint()
+      ..color = const Color(0xFF0277BD).withValues(alpha: 0.15);
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), waterOverlay);
+
+    // Light rays from top
+    final rayPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Colors.white.withValues(alpha: 0.1),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height * 0.4));
+
+    for (int i = 0; i < 5; i++) {
+      final xOffset = (bgOffset * 0.3 + i * size.width / 5) % size.width;
+      final rayPath = Path()
+        ..moveTo(xOffset - 20, 0)
+        ..lineTo(xOffset, size.height * 0.4)
+        ..lineTo(xOffset + 20, 0)
+        ..close();
+      canvas.drawPath(rayPath, rayPaint);
+    }
+
+    // Floating bubbles
+    final bubblePaint = Paint()..color = Colors.white.withValues(alpha: 0.4);
+    for (int i = 0; i < 15; i++) {
+      final bubbleX = (math.sin(i * 50 + bgOffset * 2) * size.width * 0.4 + size.width * 0.5) % size.width;
+      final bubbleY = ((animationValue * size.height * 2 + i * 80) % (size.height + 100)) - 50;
+      final bubbleSize = 3.0 + (i % 3) * 2;
+      
+      // Bubble with shine
+      canvas.drawCircle(Offset(bubbleX, bubbleY), bubbleSize, bubblePaint);
+      canvas.drawCircle(
+        Offset(bubbleX - bubbleSize * 0.3, bubbleY - bubbleSize * 0.3),
+        bubbleSize * 0.4,
+        Paint()..color = Colors.white.withValues(alpha: 0.6),
+      );
+    }
+
+    // Water particles
+    final particlePaint = Paint()..color = Colors.white.withValues(alpha: 0.2);
+    for (int i = 0; i < 30; i++) {
+      final particleX = (math.cos(i * 30 + animationValue * math.pi * 2) * size.width * 0.5 + size.width * 0.5) % size.width;
+      final particleY = (i * size.height / 30 + bgOffset * 10) % size.height;
+      canvas.drawCircle(Offset(particleX, particleY), 1, particlePaint);
+    }
+
+    // Wavy water surface effect at top
+    final wavePath = Path();
+    wavePath.moveTo(0, 0);
+    for (double x = 0; x <= size.width; x += 10) {
+      final y = math.sin((x / 50) + (animationValue * 2 * math.pi)) * 5 + 10;
+      wavePath.lineTo(x, y);
+    }
+    wavePath.lineTo(size.width, 0);
+    wavePath.close();
+    
+    final wavePaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFF01579B).withValues(alpha: 0.3),
+          Colors.transparent,
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, 30));
+    canvas.drawPath(wavePath, wavePaint);
+
+    // Caustics effect (light patterns on ground)
+    final causticPaint = Paint()
+      ..color = Colors.lightBlueAccent.withValues(alpha: 0.1)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    
+    for (int i = 0; i < 3; i++) {
+      final causticPath = Path();
+      final yPos = size.height * 0.85 + i * 10;
+      causticPath.moveTo(0, yPos);
+      
+      for (double x = 0; x <= size.width; x += 20) {
+        final y = yPos + math.sin((x / 30) + (animationValue * 2 * math.pi) + i) * 3;
+        causticPath.lineTo(x, y);
+      }
+      canvas.drawPath(causticPath, causticPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(UnderwaterEffectPainter old) => 
+    old.animationValue != animationValue || old.bgOffset != bgOffset;
+}

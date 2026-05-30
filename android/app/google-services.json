@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "402937476289",
+    "project_id": "tappyplane-a3564",
+    "storage_bucket": "tappyplane-a3564.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:402937476289:android:254a997ef506e0bcae1040",
+        "android_client_info": {
+          "package_name": "com.tappyplane.game"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "402937476289-0mtsfpurjrr6cqiunslcje296ftjdisi.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAdGMV78MmNaiaFG_hvNPGsyl043_lVkds"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "402937476289-0mtsfpurjrr6cqiunslcje296ftjdisi.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
