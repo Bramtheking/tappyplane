@@ -9,22 +9,14 @@ class LeaderboardScreen extends StatefulWidget {
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _LeaderboardScreenState extends State<LeaderboardScreen> {
   final AuthService _authService = AuthService();
   late LeaderboardService _leaderboardService;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _leaderboardService = LeaderboardService(_authService);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
   }
 
   @override
@@ -65,24 +57,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                   ],
                 ),
               ),
-              TabBar(
-                controller: _tabController,
-                indicatorColor: Colors.amber,
-                labelColor: Colors.amber,
-                unselectedLabelColor: Colors.white70,
-                tabs: const [
-                  Tab(text: 'GLOBAL'),
-                  Tab(text: 'MY BEST'),
-                ],
-              ),
               Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildGlobalLeaderboard(),
-                    _buildPersonalBest(),
-                  ],
-                ),
+                child: _buildGlobalLeaderboard(),
               ),
             ],
           ),
@@ -102,19 +78,33 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(
             child: Text(
-              'No scores yet!\nBe the first to submit.',
+              'No scores yet!\nBe the first to play.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.white70, fontSize: 18),
             ),
           );
         }
 
+        // Group by player name and keep only highest score
         final entries = snapshot.data!;
+        final Map<String, LeaderboardEntry> uniqueEntries = {};
+        
+        for (var entry in entries) {
+          if (!uniqueEntries.containsKey(entry.playerName) || 
+              entry.score > uniqueEntries[entry.playerName]!.score) {
+            uniqueEntries[entry.playerName] = entry;
+          }
+        }
+        
+        // Sort by score descending
+        final sortedEntries = uniqueEntries.values.toList()
+          ..sort((a, b) => b.score.compareTo(a.score));
+
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: entries.length,
+          itemCount: sortedEntries.length,
           itemBuilder: (context, index) {
-            final entry = entries[index];
+            final entry = sortedEntries[index];
             return _buildLeaderboardTile(entry, index + 1);
           },
         );
@@ -122,60 +112,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     );
   }
 
-  Widget _buildPersonalBest() {
-    if (!_authService.isSignedIn) {
-      return const Center(
-        child: Text(
-          'Sign in to track your scores',
-          style: TextStyle(color: Colors.white70, fontSize: 18),
-        ),
-      );
-    }
-
-    return StreamBuilder<List<LeaderboardEntry>>(
-      stream: _leaderboardService.getPersonalBest(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Colors.white));
-        }
-
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
-            child: Text(
-              'No scores submitted yet',
-              style: TextStyle(color: Colors.white70, fontSize: 18),
-            ),
-          );
-        }
-
-        final entries = snapshot.data!;
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: entries.length,
-          itemBuilder: (context, index) {
-            final entry = entries[index];
-            return _buildLeaderboardTile(entry, index + 1, isPersonal: true);
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildLeaderboardTile(LeaderboardEntry entry, int rank, {bool isPersonal = false}) {
+  Widget _buildLeaderboardTile(LeaderboardEntry entry, int rank) {
     Color rankColor = Colors.white;
     IconData? medal;
 
-    if (!isPersonal) {
-      if (rank == 1) {
-        rankColor = const Color(0xFFFFD700);
-        medal = Icons.emoji_events;
-      } else if (rank == 2) {
-        rankColor = const Color(0xFFC0C0C0);
-        medal = Icons.emoji_events;
-      } else if (rank == 3) {
-        rankColor = const Color(0xFFCD7F32);
-        medal = Icons.emoji_events;
-      }
+    if (rank == 1) {
+      rankColor = const Color(0xFFFFD700);
+      medal = Icons.emoji_events;
+    } else if (rank == 2) {
+      rankColor = const Color(0xFFC0C0C0);
+      medal = Icons.emoji_events;
+    } else if (rank == 3) {
+      rankColor = const Color(0xFFCD7F32);
+      medal = Icons.emoji_events;
     }
 
     return Container(
@@ -185,7 +134,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
         color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: rank <= 3 && !isPersonal ? rankColor : Colors.white24,
+          color: rank <= 3 ? rankColor : Colors.white24,
           width: 2,
         ),
       ),

@@ -704,11 +704,17 @@ class _GameOverDialogState extends State<GameOverDialog> with SingleTickerProvid
     _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
 
-    // Pre-fill name if signed in
+    // Pre-fill name if signed in and auto-submit
     if (_authService.isSignedIn) {
       _authService.getUserProfile().then((profile) {
         if (profile != null && mounted) {
-          _nameController.text = profile['name'] ?? '';
+          final name = profile['name'] ?? _authService.currentUser?.displayName ?? '';
+          _nameController.text = name;
+          
+          // Auto-submit to leaderboard
+          if (name.isNotEmpty) {
+            _submitToLeaderboard();
+          }
         }
       });
     }
@@ -723,11 +729,10 @@ class _GameOverDialogState extends State<GameOverDialog> with SingleTickerProvid
 
   Future<void> _submitToLeaderboard() async {
     if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your name')),
-      );
       return;
     }
+
+    if (_isSubmitting) return; // Prevent double submission
 
     setState(() => _isSubmitting = true);
 
@@ -735,9 +740,6 @@ class _GameOverDialogState extends State<GameOverDialog> with SingleTickerProvid
 
     if (mounted) {
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Score submitted to leaderboard!')),
-      );
     }
   }
 
@@ -870,53 +872,8 @@ class _GameOverDialogState extends State<GameOverDialog> with SingleTickerProvid
 
                   const SizedBox(height: 20),
 
-                  // Leaderboard Submission
-                  if (_authService.isSignedIn) ...[
-                    TextField(
-                      controller: _nameController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Your Name',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Colors.white30),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _isSubmitting ? null : _submitToLeaderboard,
-                        icon: _isSubmitting
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.leaderboard),
-                        label: Text(_isSubmitting ? 'Submitting...' : 'Submit to Leaderboard'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber,
-                          foregroundColor: Colors.black,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ] else ...[
+                  // Leaderboard Submission - Silent auto-submit, no UI needed
+                  if (!_authService.isSignedIn) ...[
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -929,7 +886,7 @@ class _GameOverDialogState extends State<GameOverDialog> with SingleTickerProvid
                           const Icon(Icons.leaderboard, color: Colors.amber, size: 32),
                           const SizedBox(height: 8),
                           const Text(
-                            'Sign in to submit your score\nto the leaderboard!',
+                            'Sign in to save your scores\nto the leaderboard!',
                             textAlign: TextAlign.center,
                             style: TextStyle(color: Colors.white70, fontSize: 14),
                           ),
