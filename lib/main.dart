@@ -7,11 +7,18 @@ import 'screens/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase only if not already initialized
-  if (Firebase.apps.isEmpty) {
+  // Initialize Firebase - handle all possible scenarios
+  try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+  } on FirebaseException catch (e) {
+    if (e.code == 'duplicate-app') {
+      // Firebase already initialized, this is fine
+      print('Firebase already initialized, continuing...');
+    } else {
+      rethrow;
+    }
   }
   
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);

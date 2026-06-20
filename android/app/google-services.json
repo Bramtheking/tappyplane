@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "402937476289-c5c92oeia8rmnq9kiacn1uq53oh7hnt5.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tappyplane.game",
+            "certificate_hash": "443334fbcc2dfd473afe0fe237d249012020ac97"
+          }
+        },
+        {
+          "client_id": "402937476289-tiln44uirlbv2vo5tpr0c9jsouum87gc.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.tappyplane.game",
+            "certificate_hash": "7567a6463642cfa1d3768da8442e56d53dbc41ba"
+          }
+        },
+        {
           "client_id": "402937476289-0mtsfpurjrr6cqiunslcje296ftjdisi.apps.googleusercontent.com",
           "client_type": 3
         }

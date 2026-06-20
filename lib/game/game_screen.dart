@@ -80,17 +80,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _playSound(String name) async {
     try {
       await _sfxPlayer.stop();
-      await _sfxPlayer.play(AssetSource('sounds/$name.mp3'));
-    } catch (_) {}
+      await _sfxPlayer.play(AssetSource('sounds/$name.mp3'), mode: PlayerMode.lowLatency);
+    } catch (e) {
+      print('Error playing sound: $e');
+    }
   }
 
-  void _startGame() {
+  void _startGame() async {
     setState(() {
       _isPlaying = true;
       _isGameOver = false;
       _score = 0;
       _sessionCoins = 0;
-      _planeY = 0;
+      _planeY = -50; // Start slightly above center
       _planeVelocity = 0;
       _obstacles.clear();
       _coins.clear();
@@ -99,9 +101,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _gapSize = 250;
     });
 
+    // Start background music
     try {
-      _bgmPlayer.play(AssetSource('sounds/music.mp3'));
-    } catch (_) {}
+      await _bgmPlayer.stop();
+      await _bgmPlayer.setReleaseMode(ReleaseMode.loop);
+      await _bgmPlayer.setVolume(0.3);
+      await _bgmPlayer.play(AssetSource('sounds/music.mp3'));
+    } catch (e) {
+      print('Error playing music: $e');
+    }
 
     _timer = Timer.periodic(const Duration(milliseconds: 20), (timer) {
       _updateGame();
@@ -258,6 +266,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _timer?.cancel();
     _focusNode.dispose();
     _characterAnimController.dispose();
+    _sfxPlayer.dispose();
+    _bgmPlayer.dispose();
     super.dispose();
   }
 
